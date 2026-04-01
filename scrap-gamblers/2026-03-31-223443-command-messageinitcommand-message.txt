@@ -1,0 +1,1218 @@
+ ▐▛███▜▌   Claude Code v2.1.87
+▝▜█████▛▘  Sonnet 4.6 · Claude Pro
+  ▘▘ ▝▝    ~/Workspace/games/scrap-gamblers/scrap-gamblers
+
+❯ /init Build a stylized menu that looks like a fallout pip boy. There should   
+be a crt styled screen in the middle with a fish eye bulge and scan lines. To   
+each side of the screen there should be physical looking buttons that make a    
+click when pressed. The buttons should let you navigate a simple text based     
+menu on the crt. The project should render in webgl so I can use view this      
+project in a web browser.                                                       
+
+● Explore(Explore codebase structure)
+  ⎿  Done (17 tool uses · 19.3k tokens · 44s)
+  (ctrl+o to expand)
+
+  Read 2 files (ctrl+o to expand)
+
+● Write(CLAUDE.md)
+  ⎿  Wrote 65 lines to CLAUDE.md
+       1 # CLAUDE.md
+       2 
+       3 This file provides guidance to Claude Code (claude.ai/code) when
+          working with code in this repository.
+       4 
+       5 ## Project Goal
+       6 
+       7 A Fallout Pip-Boy styled interactive menu rendered in WebGL (via
+          Bevy + WASM). The UI features:
+       8 - A CRT screen in the center with fish-eye/bulge distortion and 
+         scanline post-processing
+       9 - Physical-looking buttons flanking the screen with click sounds
+          and tactile visual feedback
+      10 - Text-based menu navigation driven by the buttons
+     … +55 lines (ctrl+o to expand)
+
+● Created CLAUDE.md covering:
+
+  - Commands — native cargo run, WASM build pipeline, trunk as a dev-server
+  alternative
+  - WebAssembly setup — target install, wasm-bindgen, the dynamic_linking caveat
+   for WASM
+  - Architecture — the three main subsystems to build (CRT shader pipeline, ECS
+  menu state/text, physical button entities + audio), all grounded in Bevy 0.18
+  patterns
+
+  The project is currently a minimal Bevy scaffold (main.rs is 10 lines). The
+  CLAUDE.md captures the intended direction so future sessions know what to
+  build toward without re-deriving it from the task description.
+
+✻ Cooked for 1m 14s
+
+❯ Build a stylized menu that looks like a fallout pip boy. There should be a    
+crt styled screen in the middle with a fish eye bulge and scan lines. To each   
+side of the screen there should be physical looking buttons that make a click   
+when pressed. The buttons should let you navigate a simple text based menu on   
+the crt. The project should render in webgl so I can use view this project in a 
+ web browser.                                                                   
+
+● Let me explore the existing project and then build everything.
+
+  Read 1 file (ctrl+o to expand)
+
+● Now I'll build all the files. Starting with the dependencies and shader, then
+  the Rust modules.
+
+● Write(Cargo.toml)
+  ⎿  Added 9 lines, removed 1 line
+       3  version = "0.1.0"
+       4  edition = "2024"
+       5  
+       6 +[features]                                                     
+       7 +# Enable for faster native dev builds only — breaks WASM       
+       8 +dev = ["bevy/dynamic_linking"]                                 
+       9 +                                                               
+      10  [dependencies]
+       7 -bevy = { version = "0.18.1", features = ["dynamic_linking"] }  
+      11 +bevy = { version = "0.18", features = ["webgl2"] }             
+      12  
+      13  [profile.dev]
+      14  opt-level = 1
+      15  
+      16  [profile.dev.package."*"]
+      17  opt-level = 3
+      18 +                                                               
+      19 +[profile.release]                                              
+      20 +opt-level = "s"                                                
+      21 +lto = true                                                     
+
+● Bash(mkdir -p
+      /home/cas/Workspace/games/scrap-gamblers/scrap-gamblers/assets/shaders)
+  ⎿  Done
+
+● Write(assets/shaders/crt.wgsl)
+  ⎿  Wrote 87 lines to assets/shaders/crt.wgsl
+       1 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
+       2 
+       3 @group(2) @binding(0) var screen_texture: texture_2d<f32>;
+       4 @group(2) @binding(1) var screen_sampler: sampler;
+       5 @group(2) @binding(2) var<uniform> params: CrtParams;
+       6 
+       7 struct CrtParams {
+       8     // x = distortion strength, y = scanline intensity, z = time
+         , w = unused
+       9     settings: vec4<f32>,
+      10     // x = render target width, y = render target height, z = un
+         used, w = unused
+     … +77 lines (ctrl+o to expand)
+
+● Write(index.html)
+  ⎿  Wrote 30 lines to index.html
+       1 <!DOCTYPE html>
+       2 <html lang="en">
+       3 <head>
+       4     <meta charset="utf-8"/>
+       5     <meta name="viewport" content="width=device-width, initial-s
+         cale=1.0"/>
+       6     <title>Pip-Boy 3000</title>
+       7     <style>
+       8         * { margin: 0; padding: 0; box-sizing: border-box; }
+       9         html, body {
+      10             width: 100%;
+     … +20 lines (ctrl+o to expand)
+
+● Now write the Rust modules:
+
+● Write(src/menu.rs)
+  ⎿  Wrote 74 lines to src/menu.rs
+       1 use bevy::prelude::*;
+       2 
+       3 #[derive(Resource)]
+       4 pub struct MenuState {
+       5     pub items: Vec<&'static str>,
+       6     pub selected: usize,
+       7 }
+       8 
+       9 impl Default for MenuState {
+      10     fn default() -> Self {
+     … +64 lines (ctrl+o to expand)
+
+● Write(src/crt_material.rs)
+  ⎿  Wrote 55 lines to src/crt_material.rs
+       1 use bevy::{
+       2     prelude::*,
+       3     render::render_resource::{AsBindGroup, ShaderRef, ShaderType
+         },
+       4     sprite::{Material2d, MeshMaterial2d},
+       5 };
+       6 
+       7 /// GPU uniform block — two vec4s so alignment is trivially corr
+         ect.
+       8 #[derive(Clone, Debug, ShaderType)]
+       9 pub struct CrtParams {
+      10     /// x = barrel-distortion k, y = scanline intensity, z = ela
+         psed time, w = unused
+     … +45 lines (ctrl+o to expand)
+
+● Write(src/buttons.rs)
+  ⎿  Wrote 161 lines to src/buttons.rs
+      1 use bevy::prelude::*;
+      2 use crate::menu::NavEvent;
+      3 
+      4 #[derive(Clone, Debug, PartialEq)]
+      5 pub enum NavAction {
+      6     Up,
+      7     Down,
+      8     Select,
+      9 }
+     … +151 lines (ctrl+o to expand)
+
+● Write(src/pip_boy.rs)
+  ⎿  Wrote 373 lines to src/pip_boy.rs
+       1 use bevy::{
+       2     prelude::*,
+       3     render::{
+       4         camera::{RenderTarget, ScalingMode},
+       5         render_resource::{
+       6             Extent3d, TextureDescriptor, TextureDimension, Textu
+         reFormat, TextureUsages,
+       7         },
+       8         view::RenderLayers,
+       9     },
+      10     sprite::MeshMaterial2d,
+     … +363 lines (ctrl+o to expand)
+
+● Write(src/main.rs)
+  ⎿  Added 40 lines, removed 6 lines
+       1 -use bevy::prelude::*;                                          
+       1 +mod buttons;                                                   
+       2 +mod crt_material;                                              
+       3 +mod menu;                                                      
+       4 +mod pip_boy;                                                   
+       5  
+       6 +use bevy::{prelude::*, sprite::Material2dPlugin};              
+       7 +use crt_material::CrtMaterial;                                 
+       8 +                                                               
+       9  fn main() {
+       4 -    App::new().add_systems(Update, hello_world).run();         
+      10 +    App::new()                                                 
+      11 +        .add_plugins(                                          
+      12 +            DefaultPlugins.set(WindowPlugin {                  
+      13 +                primary_window: Some(Window {                  
+      14 +                    title: "Pip-Boy 3000".into(),              
+      15 +                    resolution: (1024.0, 640.0).into(),        
+      16 +                    // Canvas selector used by trunk/wasm-bindg
+         +en                                                             
+      17 +                    canvas: Some("#bevy".into()),              
+      18 +                    fit_canvas_to_parent: true,                
+      19 +                    prevent_default_event_handling: false,     
+      20 +                    ..default()                                
+      21 +                }),                                            
+      22 +                ..default()                                    
+      23 +            }),                                                
+      24 +        )                                                      
+      25 +        .add_plugins(Material2dPlugin::<CrtMaterial>::default()
+         +)                                                              
+      26 +        .init_resource::<menu::MenuState>()                    
+      27 +        .add_event::<menu::NavEvent>()                         
+      28 +        .add_systems(                                          
+      29 +            Startup,                                           
+      30 +            (pip_boy::setup, buttons::setup).chain(),          
+      31 +        )                                                      
+      32 +        .add_systems(                                          
+      33 +            Update,                                            
+      34 +            (                                                  
+      35 +                buttons::handle_interaction,                   
+      36 +                buttons::handle_keyboard,                      
+      37 +                menu::on_nav_event,                            
+      38 +                menu::update_text,                             
+      39 +                crt_material::tick_time,                       
+      40 +            ),                                                 
+      41 +        )                                                      
+      42 +        .run();                                                
+      43  }
+       6 -                                                               
+       7 -fn hello_world() {                                             
+       8 -    println!("hello world");                                   
+       9 -}                                                              
+
+● Now let's try to build it natively to catch compile errors:
+
+● Bash(cargo check 2>&1)
+  ⎿  Running in the background (↓ to manage)
+
+● Bash(wait && cat /tmp/claude-1000/-home-cas-Workspace-games-scrap-gamblers-scr
+      ap-gamblers/c71c5dd0-313f-45fc-b175-238d14b0d78f/tasks/bc6sqyhxm.output
+      2>/dev/null ||…)  ⎿     Compiling unicode-ident v1.0.24
+         Checking cfg-if v1.0.4
+         Checking log v0.4.29
+     … +228 lines (ctrl+o to expand)
+
+● Many import paths moved in Bevy 0.18. Let me check the actual crate structure:
+
+  Searched for 6 patterns (ctrl+o to expand)
+
+● Bash(# Check how bevy main crate re-exports these
+      grep -n "RenderLayers\|ScalingMode\|RenderTarget\|Material2d\|ShaderRef\|C
+      hildBuilder\|ChildSpawner" /home/cas/.car…)
+  ⎿  (No output)
+
+  Searched for 19 patterns, read 4 files (ctrl+o to expand)
+
+● Bash(# Check what Material2d trait needs for ShaderRef
+      grep -n "ShaderRef\|fn fragment_shader\|fn vertex_shader"
+      /home/cas/.cargo/registry/src/index.crates.io-1949cf…)
+  ⎿  49:use bevy_shader::{Shader, ShaderDefVal, ShaderRef};
+     76:/// # use bevy_shader::ShaderRef;
+     98:///     fn fragment_shader() -> ShaderRef {
+     … +15 lines (ctrl+o to expand)
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ Continue                                                                      
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Bash(# Check what's in camera prelude and sprite_render exports
+      grep -n "RenderTarget\|RenderLayers\|ScalingMode\|OrthographicProjection\|
+      Camera2d" /home/cas/.cargo/…)
+  ⎿  37:        Camera, Camera2d, Camera3d, ClearColor, ClearColorConfig, M
+     saaWriteback,
+     38:        OrthographicProjection, PerspectiveProjection, Projection,
+     … +5 lines (ctrl+o to expand)
+
+  Searched for 7 patterns, read 3 files (ctrl+o to expand)
+
+● Bash(sed -n '813,840p' /home/cas/.cargo/registry/src/index.crates.io-1949cf8c6
+      b5b557f/bevy_camera-0.18.1/src/camera.rs)
+  ⎿  pub enum RenderTarget {
+         /// Window to which the camera's view is rendered.
+         Window(WindowRef),
+     … +22 lines (ctrl+o to expand)
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+● Bash(sed -n '895,945p' /home/cas/.cargo/registry/src/index.crates.io-1949cf8c6
+      b5b557f/bevy_camera-0.18.1/src/camera.rs)
+  ⎿  pub struct ImageRenderTarget {
+         /// The image to render to.
+         pub handle: Handle<Image>,
+     … +27 lines (ctrl+o to expand)
+
+● Bash(sed -n '380,400p' /home/cas/.cargo/registry/src/index.crates.io-1949cf8c6
+      b5b557f/bevy_ecs-0.18.1/src/hierarchy.rs)
+  ⎿          self
+         }
+     }
+     … +19 lines (ctrl+o to expand)
+
+● Bash(grep -n "fn spawn\|pub fn" /home/cas/.cargo/registry/src/index.crates.io-
+      1949cf8c6b5b557f/bevy_ecs-0.18.1/src/related_methods.rs 2>/dev/null | head
+       -20
+      # Also c…)
+  ⎿  /home/cas/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ec
+     s-0.18.1/src/hierarchy.rs:388:        func: impl FnOnce(&mut RelatedSp
+     awnerCommands<ChildOf>),
+     … +6 lines (ctrl+o to expand)
+
+● Bash(sed -n '617,650p' /home/cas/.cargo/registry/src/index.crates.io-1949cf8c6
+      b5b557f/bevy_ecs-0.18.1/src/relationship/related_methods.rs)  ⎿  impl<'w, R: Relationship> RelatedSpawnerCommands<'w, R> {
+         /// Creates a new instance that will spawn entities targeting the
+     `target` entity.
+     … +22 lines (ctrl+o to expand)
+
+● Now I have all the information. Let me fix every file with the correct Bevy
+  0.18 APIs:
+
+● Write(src/menu.rs)
+  ⎿  Added 6 lines, removed 6 lines
+      15      }
+      16  }
+      17  
+      18 -/// Navigation events fired by buttons and keyboard.           
+      19 -#[derive(Event, Clone, Copy)]                                  
+      18 +/// Navigation messages fired by buttons and keyboard.         
+      19 +#[derive(Message, Clone, Copy)]                                
+      20  pub enum NavEvent {
+      21      Up,
+      22      Down,
+      23      Select,
+      24  }
+      25  
+      26 -/// Marks the 2-D text entities that represent menu rows (rende
+         -red into the CRT                                               
+      27 -/// render-target camera).                                     
+      26 +/// Marks the 2-D text entities that represent menu rows (rende
+         +red into the                                                   
+      27 +/// CRT render-target camera).                                 
+      28  #[derive(Component)]
+      29  pub struct MenuItem {
+      30      pub index: usize,
+     ...
+      32  }
+      33  
+      34  pub fn on_nav_event(
+      35 -    mut events: EventReader<NavEvent>,                         
+      35 +    mut events: MessageReader<NavEvent>,                       
+      36      mut state: ResMut<MenuState>,
+      37  ) {
+      38      for ev in events.read() {
+     ...
+      48                  state.selected = (state.selected + 1) % state.i
+          tems.len();
+      49              }
+      50              NavEvent::Select => {
+      51 -                // Extend here: dispatch action for state.items
+         -[state.selected]                                               
+      51 +                // Future: dispatch action for state.items[stat
+         +e.selected]                                                    
+      52              }
+      53          }
+      54      }
+
+● Write(src/buttons.rs)
+  ⎿  Added 14 lines, removed 14 lines
+      27  // ── Setup ───────────────────────────────────────────────────
+          ──────────────────
+      28  
+      29  pub fn setup(mut commands: Commands) {
+      30 -    // Transparent full-screen flex row                        
+      30 +    // Transparent full-screen flex row — buttons float over th
+         +e 2-D world.                                                   
+      31      commands
+      32          .spawn(Node {
+      33              width: Val::Percent(100.0),
+     ...
+      52                  spawn_button(panel, NavAction::Down, "▼  DOWN")
+          ;
+      53              });
+      54  
+      55 -            // ── Centre spacer: transparent, CRT mesh renders 
+         -through it ──                                                  
+      55 +            // ── Centre spacer: CRT mesh renders through it ──
+         +──────────────                                                 
+      56              root.spawn(Node {
+      57                  flex_grow: 1.0,
+      58                  ..default()
+     ...
+      72          });
+      73  }
+      74  
+      75 -fn panel_label(parent: &mut ChildBuilder, text: &'static str) {
+      75 +fn panel_label(parent: &mut ChildSpawnerCommands, text: &'stati
+         +c str) {                                                       
+      76      parent.spawn((
+      77          Text::new(text),
+      78          TextFont { font_size: 11.0, ..default() },
+     ...
+      80      ));
+      81  }
+      82  
+      83 -fn spawn_button(parent: &mut ChildBuilder, action: NavAction, l
+         -abel: &'static str) {                                          
+      83 +fn spawn_button(parent: &mut ChildSpawnerCommands, action: NavA
+         +ction, label: &'static str) {                                  
+      84      parent
+      85          .spawn((
+      86              Button,
+     ...
+       94                  ..default()
+       95              },
+       96              BackgroundColor(BG_NORMAL),
+       97 -            BorderColor(BORDER_NORMAL),                       
+       97 +            BorderColor::all(BORDER_NORMAL),                  
+       98              BorderRadius::all(Val::Px(7.0)),
+       99          ))
+      100          .with_children(|btn| {
+     ...
+      119          ),
+      120          Changed<Interaction>,
+      121      >,
+      122 -    mut events: EventWriter<NavEvent>,                        
+      122 +    mut events: MessageWriter<NavEvent>,                      
+      123  ) {
+      124      for (interaction, btn, mut bg, mut border) in &mut query {
+      125          match interaction {
+      126              Interaction::Pressed => {
+      127                  bg.0 = BG_PRESS;
+      128 -                border.0 = BORDER_PRESS;                      
+      129 -                events.send(match btn.action {                
+      128 +                *border = BorderColor::all(BORDER_PRESS);     
+      129 +                events.write(match btn.action {               
+      130                      NavAction::Up     => NavEvent::Up,
+      131                      NavAction::Down   => NavEvent::Down,
+      132                      NavAction::Select => NavEvent::Select,
+     ...
+      134              }
+      135              Interaction::Hovered => {
+      136                  bg.0 = BG_HOVER;
+      137 -                border.0 = BORDER_NORMAL;                     
+      137 +                *border = BorderColor::all(BORDER_NORMAL);    
+      138              }
+      139              Interaction::None => {
+      140                  bg.0 = BG_NORMAL;
+      141 -                border.0 = BORDER_NORMAL;                     
+      141 +                *border = BorderColor::all(BORDER_NORMAL);    
+      142              }
+      143          }
+      144      }
+     ...
+      147  /// Keyboard shortcuts: arrows / W-S / Enter-Space.
+      148  pub fn handle_keyboard(
+      149      keys: Res<ButtonInput<KeyCode>>,
+      150 -    mut events: EventWriter<NavEvent>,                        
+      150 +    mut events: MessageWriter<NavEvent>,                      
+      151  ) {
+      152      if keys.just_pressed(KeyCode::ArrowUp)   || keys.just_pres
+           sed(KeyCode::KeyW) {
+      153 -        events.send(NavEvent::Up);                            
+      153 +        events.write(NavEvent::Up);                           
+      154      }
+      155      if keys.just_pressed(KeyCode::ArrowDown) || keys.just_pres
+           sed(KeyCode::KeyS) {
+      156 -        events.send(NavEvent::Down);                          
+      156 +        events.write(NavEvent::Down);                         
+      157      }
+      158      if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(
+           KeyCode::Space) {
+      159 -        events.send(NavEvent::Select);                        
+      159 +        events.write(NavEvent::Select);                       
+      160      }
+      161  }
+
+● Write(src/crt_material.rs)
+  ⎿  Added 4 lines, removed 3 lines
+       1  use bevy::{
+       2      prelude::*,
+       3 -    render::render_resource::{AsBindGroup, ShaderRef, ShaderTyp
+         -e},                                                            
+       4 -    sprite::{Material2d, MeshMaterial2d},                      
+       3 +    render::render_resource::{AsBindGroup, ShaderType},        
+       4 +    shader::ShaderRef,                                         
+       5 +    sprite_render::Material2d,                                 
+       6  };
+       7  
+       7 -/// GPU uniform block — two vec4s so alignment is trivially cor
+         -rect.                                                          
+       8 +/// GPU uniform block — two vec4s (32 bytes, trivially aligned)
+         +.                                                              
+       9  #[derive(Clone, Debug, ShaderType)]
+      10  pub struct CrtParams {
+      11      /// x = barrel-distortion k, y = scanline intensity, z = el
+          apsed time, w = unused
+
+● Write(src/pip_boy.rs)
+  ⎿  Added 41 lines, removed 35 lines
+       1  use bevy::{
+       2      prelude::*,
+       3 -    render::{                                                  
+       4 -        camera::{RenderTarget, ScalingMode},                   
+       5 -        render_resource::{                                     
+       6 -            Extent3d, TextureDescriptor, TextureDimension, Text
+         -ureFormat, TextureUsages,                                      
+       7 -        },                                                     
+       8 -        view::RenderLayers,                                    
+       3 +    camera::{                                                  
+       4 +        ScalingMode,                                           
+       5 +        RenderTarget,                                          
+       6 +        ImageRenderTarget,                                     
+       7 +        visibility::RenderLayers,                              
+       8      },
+      10 -    sprite::MeshMaterial2d,                                    
+       9 +    render::render_resource::{                                 
+      10 +        Extent3d, TextureDescriptor, TextureDimension, TextureF
+         +ormat, TextureUsages,                                          
+      11 +    },                                                         
+      12  };
+      13  use crate::{
+      14      crt_material::{CrtMaterial, CrtParams, CrtScreen},
+     ...
+      21  const RT_W: u32 = 512;
+      22  const RT_H: u32 = 320;
+      23  
+      23 -/// World-space size of the CRT quad (matches RT aspect).      
+      24  const SCREEN_W: f32 = RT_W as f32;
+      25  const SCREEN_H: f32 = RT_H as f32;
+      26  
+      27 -/// Vertical offset of the screen within the Pip-Boy body.     
+      27 +/// Slight upward offset of the screen within the Pip-Boy body.
+      28  const SCREEN_Y: f32 = 18.0;
+      29  
+      30 -/// Render layer used by the menu-content camera and its text e
+         -ntities.                                                       
+      30  const MENU_LAYER: usize = 1;
+      32 -/// Render layer used by the main camera and Pip-Boy world-spac
+         -e geometry.                                                    
+      31  const WORLD_LAYER: usize = 0;
+      32  
+      35 -// ── Setup ───────────────────────────────────────────────────
+         -──────────────────                                             
+      33 +// ── Entry point ─────────────────────────────────────────────
+         +──────────────────                                             
+      34  
+      35  pub fn setup(
+      36      mut commands: Commands,
+     ...
+      73  // ── Cameras ─────────────────────────────────────────────────
+          ──────────────────
+      74  
+      75  fn spawn_cameras(commands: &mut Commands, rt: Handle<Image>) {
+      78 -    // Menu camera: renders RenderLayers::layer(1) text into th
+         -e CRT texture.                                                 
+      76 +    // Menu camera: renders layer-1 text entities into the CRT 
+         +texture.                                                       
+      77      commands.spawn((
+      78          Camera2d,
+      79          OrthographicProjection {
+     ...
+       85          },
+       86          Camera {
+       87              order: -1,
+       90 -            target: RenderTarget::Image(rt.into()),           
+       88 +            target: RenderTarget::Image(ImageRenderTarget {   
+       89 +                handle: rt,                                   
+       90 +                scale_factor: 1.0,                            
+       91 +            }),                                               
+       92              clear_color: ClearColorConfig::Custom(Color::srgb(
+           0.012, 0.045, 0.012)),
+       93              ..default()
+       94          },
+       95          RenderLayers::layer(MENU_LAYER),
+       96      ));
+       97  
+       97 -    // Main camera: renders the Pip-Boy frame + CRT quad + UI 
+          -buttons.                                                      
+       98 +    // Main camera: renders Pip-Boy frame, CRT quad, and UI bu
+          +ttons.                                                        
+       99      commands.spawn((
+      100          Camera2d,
+      101          Camera {
+     ...
+      128      ));
+      129  
+      130      // ── Pip-Boy body ───────────────────────────────────────
+           ───────────────
+      130 -    // Main body plate                                        
+      131 +                                                              
+      132      commands.spawn((
+      133          Sprite {
+      134              color: Color::srgb(0.140, 0.175, 0.100),
+     ...
+      139          wl.clone(),
+      140      ));
+      141  
+      141 -    // Top edge highlight strip                               
+      142 +    // Top highlight strip                                    
+      143      commands.spawn((
+      144          Sprite {
+      145              color: Color::srgb(0.200, 0.250, 0.140),
+     ...
+      150          wl.clone(),
+      151      ));
+      152  
+      152 -    // Bottom edge shadow strip                               
+      153 +    // Bottom shadow strip                                    
+      154      commands.spawn((
+      155          Sprite {
+      156              color: Color::srgb(0.070, 0.090, 0.050),
+     ...
+      162      ));
+      163  
+      164      // ── Screen bezel ───────────────────────────────────────
+           ───────────────
+      164 -    // Outer bezel (dark frame around screen)                 
+      165 +                                                              
+      166 +    // Outer bezel (dark frame)                               
+      167      commands.spawn((
+      168          Sprite {
+      169              color: Color::srgb(0.055, 0.065, 0.040),
+     ...
+      185          wl.clone(),
+      186      ));
+      187  
+      186 -    // ── CRT screen mesh ────────────────────────────────────
+          -───────────────                                               
+      188 +    // ── CRT screen quad ────────────────────────────────────
+          +───────────────                                               
+      189 +                                                              
+      190      let mat = crt_mats.add(CrtMaterial {
+      191          texture: rt,
+      192          params: CrtParams::default(),
+     ...
+      199          CrtScreen,
+      200      ));
+      201  
+      199 -    // ── Left panel decorations ─────────────────────────────
+          -───────────────                                               
+      202 +    // ── Panel decorations ──────────────────────────────────
+          +───────────────                                               
+      203      left_panel(commands, &wl);
+      201 -                                                              
+      202 -    // ── Right panel decorations ────────────────────────────
+          -───────────────                                               
+      204      right_panel(commands, &wl);
+      205  }
+      206  
+      207  fn left_panel(commands: &mut Commands, wl: &RenderLayers) {
+      208      let cx = -390.0_f32;
+      209  
+      209 -    // Panel inset background                                 
+      210 +    // Panel background                                       
+      211      commands.spawn((
+      212          Sprite {
+      213              color: Color::srgb(0.100, 0.130, 0.072),
+     ...
+      218          wl.clone(),
+      219      ));
+      220  
+      220 -    // Power indicator LED                                    
+      221 +    // Power LED                                              
+      222      commands.spawn((
+      223          Sprite {
+      224              color: Color::srgb(0.10, 0.90, 0.20),
+      224 -            custom_size: Some(Vec2::new(10.0, 10.0)),         
+      225 +            custom_size: Some(Vec2::splat(10.0)),             
+      226              ..default()
+      227          },
+      228          Transform::from_xyz(cx, 200.0, -5.0),
+      229          wl.clone(),
+      230      ));
+      231  
+      231 -    // Three decorative horizontal slots                      
+      232 +    // Decorative horizontal slots                            
+      233      for i in 0..3_i32 {
+      234          commands.spawn((
+      235              Sprite {
+     ...
+      242          ));
+      243      }
+      244  
+      244 -    // Speaker grille — dot grid                              
+      245 +    // Speaker grille dot grid                                
+      246      for row in 0..5_i32 {
+      247          for col in 0..4_i32 {
+      248              commands.spawn((
+     ...
+      265  fn right_panel(commands: &mut Commands, wl: &RenderLayers) {
+      266      let cx = 390.0_f32;
+      267  
+      267 -    // Panel inset background                                 
+      268 +    // Panel background                                       
+      269      commands.spawn((
+      270          Sprite {
+      271              color: Color::srgb(0.100, 0.130, 0.072),
+     ...
+      276          wl.clone(),
+      277      ));
+      278  
+      278 -    // Knob outline circles — two rotary-style widgets        
+      279 +    // Two rotary knob widgets                                
+      280      for i in 0..2_i32 {
+      281 +        let y = 160.0 - i as f32 * 100.0;                     
+      282          // Ring
+      283          commands.spawn((
+      284              Sprite {
+     ...
+      286                  custom_size: Some(Vec2::splat(48.0)),
+      287                  ..default()
+      288              },
+      287 -            Transform::from_xyz(cx, 160.0 - i as f32 * 100.0, 
+          --5.5),                                                        
+      289 +            Transform::from_xyz(cx, y, -5.5),                 
+      290              wl.clone(),
+      291          ));
+      292          // Centre dot
+     ...
+      296                  custom_size: Some(Vec2::splat(12.0)),
+      297                  ..default()
+      298              },
+      297 -            Transform::from_xyz(cx, 160.0 - i as f32 * 100.0, 
+          --5.0),                                                        
+      299 +            Transform::from_xyz(cx, y, -5.0),                 
+      300              wl.clone(),
+      301          ));
+      302          // Tick mark
+     ...
+      306                  custom_size: Some(Vec2::new(3.0, 16.0)),
+      307                  ..default()
+      308              },
+      307 -            Transform::from_xyz(cx, 168.0 - i as f32 * 100.0, 
+          --4.9),                                                        
+      309 +            Transform::from_xyz(cx, y + 8.0, -4.9),           
+      310              wl.clone(),
+      311          ));
+      312      }
+      313  
+      312 -    // Three horizontal slots                                 
+      314 +    // Decorative slots                                       
+      315      for i in 0..3_i32 {
+      316          commands.spawn((
+      317              Sprite {
+     ...
+      357          commands.spawn((
+      358              Text2d::new(format!("{} {}", if selected { ">" } e
+           lse { " " }, label)),
+      359              TextFont { font_size: 19.0, ..default() },
+      358 -            TextColor(if selected { Color::WHITE } else { Colo
+          -r::srgba(0.55, 0.80, 0.55, 0.85) }),                          
+      360 +            TextColor(if selected {                           
+      361 +                Color::WHITE                                  
+      362 +            } else {                                          
+      363 +                Color::srgba(0.55, 0.80, 0.55, 0.85)          
+      364 +            }),                                               
+      365              Transform::from_xyz(-40.0, y, 0.0),
+      366              ml.clone(),
+      367              MenuItem { index: i, label },
+
+● Write(src/main.rs)
+  ⎿  Added 3 lines, removed 2 lines
+       3  mod menu;
+       4  mod pip_boy;
+       5  
+       6 -use bevy::{prelude::*, sprite::Material2dPlugin};              
+       6 +use bevy::prelude::*;                                          
+       7 +use bevy::sprite_render::Material2dPlugin;                     
+       8  use crt_material::CrtMaterial;
+       9  
+      10  fn main() {
+     ...
+      25          )
+      26          .add_plugins(Material2dPlugin::<CrtMaterial>::default()
+          )
+      27          .init_resource::<menu::MenuState>()
+      27 -        .add_event::<menu::NavEvent>()                         
+      28 +        .add_message::<menu::NavEvent>()                       
+      29          .add_systems(
+      30              Startup,
+      31              (pip_boy::setup, buttons::setup).chain(),
+
+● Bash(cargo check 2>&1)
+  ⎿  Error: Exit code 101
+         Checking scrap-gamblers v0.1.0 
+     (/home/cas/Workspace/games/scrap-gamblers/scrap-gamblers)
+     error[E0277]: `(Button, PipBoyButton, Node, BackgroundColor, BorderColor, 
+     ...)` is not a `Bundle`
+        --> src/buttons.rs:85:16
+         |
+      85 |           .spawn((
+         |  __________-----_^
+         | |          |
+         | |          required by a bound introduced by this call
+      86 | |             Button,
+     … +92 lines (ctrl+o to see all)
+
+● Bash(grep -n "pub struct Button\|pub.*Button\b" /home/cas/.cargo/registry/src/
+      index.crates.io-1949cf8c6b5b557f/bevy_ui-0.18.1/src/ui_node.rs 2>/dev/null
+       | head -10
+      #…)
+  ⎿  185:    pub target_info: Option<RenderTargetInfo>,
+     353:    pub order: isize,
+     469:    pub fn logical_target_size(&self) -> Option<Vec2> {
+     … +2 lines (ctrl+o to expand)
+
+● Bash(sed -n '170,360p' /home/cas/.cargo/registry/src/index.crates.io-1949cf8c6
+      b5b557f/bevy_camera-0.18.1/src/camera.rs)
+  ⎿  }
+
+     impl Default for RenderTargetInfo {
+     … +104 lines (ctrl+o to expand)
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Bash(sed -n '480,510p' /home/cas/.cargo/registry/src/index.crates.io-1949cf8c6
+      b5b557f/bevy_ui-0.18.1/src/ui_node.rs)
+  ⎿  #[derive(Component, Clone, PartialEq, Debug, Reflect)]
+     #[require(
+         ComputedNode,
+     … +26 lines (ctrl+o to expand)
+
+● Bash(grep -n "pub struct Button" /home/cas/.cargo/registry/src/index.crates.io
+      -1949cf8c6b5b557f/bevy_ui-0.18.1/src/ui_node.rs 2>/dev/null
+      sed -n '1985,2010p' /home/c…)
+  ⎿  impl From<GridTrack> for Vec<GridTrack> {
+         fn from(track: GridTrack) -> Self {
+             vec![track]
+     … +23 lines (ctrl+o to expand)
+
+  Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+● Bash(sed -n '2465,2530p' /home/cas/.cargo/registry/src/index.crates.io-1949cf8
+      c6b5b557f/bevy_ui-0.18.1/src/ui_node.rs)
+  ⎿  #[reflect(PartialEq, Default, Debug, Clone)]
+     #[cfg_attr(
+         feature = "serialize",
+     … +29 lines (ctrl+o to expand)
+
+● Bash(sed -n '2457,2475p' /home/cas/.cargo/registry/src/index.crates.io-1949cf8
+      c6b5b557f/bevy_ui-0.18.1/src/ui_node.rs)
+  ⎿  ///         },
+     ///         BackgroundColor(BLUE.into()),
+     ///     ));
+     … +16 lines (ctrl+o to expand)
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Bash(grep -n "border_radius" /home/cas/.cargo/registry/src/index.crates.io-194
+      9cf8c6b5b557f/bevy_ui-0.18.1/src/ui_node.rs 2>/dev/null | grep "pub
+      border_radius\|Node…)
+  ⎿  74:    pub border_radius: ResolvedBorderRadius,
+     741:    pub border_radius: BorderRadius,
+         ///
+     … +35 lines (ctrl+o to expand)
+● Bash(grep -n "ClearColorConfig\|clear_color" /home/cas/.cargo/registry/src/ind
+      ex.crates.io-1949cf8c6b5b557f/bevy_camera-0.18.1/src/clear_color.rs
+      2>/dev/null | head…)
+  ⎿  9:/// [before rendering](crate::camera::Camera::clear_color)
+     13:pub enum ClearColorConfig {
+     49:/// Individual cameras may use [`Camera.clear_color`] to specify a
+     … +5 lines (ctrl+o to expand)
+
+● Bash(sed -n '8,55p' /home/cas/.cargo/registry/src/index.crates.io-1949cf8c6b5b
+      557f/bevy_camera-0.18.1/src/clear_color.rs
+      sed -n '8,25p' /home/cas/.cargo/registry/src…)
+  ⎿  /// For a camera, specifies the color used to clear the viewport
+     /// [before rendering](crate::camera::Camera::clear_color)
+     /// or when [writing to the final render target texture](crate::camera
+     … +41 lines (ctrl+o to expand)
+
+● Bash(sed -n '355,400p' /home/cas/.cargo/registry/src/index.crates.io-1949cf8c6
+      b5b557f/bevy_camera-0.18.1/src/camera.rs)
+  ⎿      /// camera will not be rendered.
+         pub is_active: bool,
+         /// Computed values for this camera, such as the projection matrix
+     … +23 lines (ctrl+o to expand)
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Bash(sed -n '212,225p' /home/cas/.cargo/registry/src/index.crates.io-1949cf8c6
+      b5b557f/bevy_camera-0.18.1/src/projection.rs)
+  ⎿  ///
+     /// [`Camera`]: crate::camera::Camera
+     #[derive(Component, Debug, Clone, Reflect, From)]
+     … +12 lines (ctrl+o to expand)
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Bash(sed -n '808,818p' /home/cas/.cargo/registry/src/index.crates.io-1949cf8c6
+      b5b557f/bevy_camera-0.18.1/src/camera.rs)
+  ⎿  /// The "target" that a [`Camera`] will render to. For example, this c
+     ould be a `Window`
+     /// swapchain or an [`Image`].
+     … +8 lines (ctrl+o to expand)
+
+● Now I have the full picture. Let me apply all fixes:
+
+● Update(src/pip_boy.rs)
+  ⎿  Added 3 lines
+      10          Extent3d, TextureDescriptor, TextureDimension, TextureF
+          ormat, TextureUsages,
+      11      },
+      12  };
+      13 +                                                               
+      14 +// Re-export for convenience                                   
+      15 +use bevy::camera::ClearColorConfig;                            
+      16  use crate::{
+      17      crt_material::{CrtMaterial, CrtParams, CrtScreen},
+      18      menu::{MenuItem, MenuState},
+
+● Update(src/pip_boy.rs)
+  ⎿  Removed 2 lines
+      11      },
+      12  };
+      13  
+      14 -// Re-export for convenience                                   
+      15 -use bevy::camera::ClearColorConfig;                            
+      14  use crate::{
+      15      crt_material::{CrtMaterial, CrtParams, CrtScreen},
+      16      menu::{MenuItem, MenuState},
+
+● Update(src/pip_boy.rs)
+  ⎿  Added 8 lines, removed 6 lines
+       75  
+       76  fn spawn_cameras(commands: &mut Commands, rt: Handle<Image>) {
+       77      // Menu camera: renders layer-1 text entities into the CRT
+            texture.
+       78 +    // RenderTarget is a separate Component in Bevy 0.18 (requ
+          +ired by Camera).                                              
+       79      commands.spawn((
+       80          Camera2d,
+       80 -        OrthographicProjection {                              
+       81 +        // Override the default orthographic projection to mat
+          +ch the render target size.                                    
+       82 +        Projection::Orthographic(OrthographicProjection {     
+       83              scaling_mode: ScalingMode::Fixed {
+       84                  width: RT_W as f32,
+       85                  height: RT_H as f32,
+       86              },
+       87              ..OrthographicProjection::default_2d()
+       86 -        },                                                    
+       88 +        }),                                                   
+       89          Camera {
+       90              order: -1,
+       89 -            target: RenderTarget::Image(ImageRenderTarget {   
+       90 -                handle: rt,                                   
+       91 -                scale_factor: 1.0,                            
+       92 -            }),                                               
+       91              clear_color: ClearColorConfig::Custom(Color::srgb(
+           0.012, 0.045, 0.012)),
+       92              ..default()
+       93          },
+       94 +        RenderTarget::Image(ImageRenderTarget {               
+       95 +            handle: rt,                                       
+       96 +            scale_factor: 1.0,                                
+       97 +        }),                                                   
+       98          RenderLayers::layer(MENU_LAYER),
+       99      ));
+      100  
+
+● Update(src/buttons.rs)
+  ⎿  Added 2 lines, removed 1 line
+       91                  align_items: AlignItems::Center,
+       92                  justify_content: JustifyContent::Center,
+       93                  border: UiRect::all(Val::Px(2.0)),
+       94 +                // BorderRadius lives inside Node, not as a se
+          +parate component                                              
+       95 +                border_radius: BorderRadius::all(Val::Px(7.0))
+          +,                                                             
+       96                  ..default()
+       97              },
+       98              BackgroundColor(BG_NORMAL),
+       99              BorderColor::all(BORDER_NORMAL),
+       98 -            BorderRadius::all(Val::Px(7.0)),                  
+      100          ))
+      101          .with_children(|btn| {
+      102              btn.spawn((
+
+● Update(src/main.rs)
+  ⎿  Added 1 line, removed 1 line
+      13              DefaultPlugins.set(WindowPlugin {
+      14                  primary_window: Some(Window {
+      15                      title: "Pip-Boy 3000".into(),
+      16 -                    resolution: (1024.0, 640.0).into(),        
+      16 +                    resolution: (1024_u32, 640_u32).into(),    
+      17                      // Canvas selector used by trunk/wasm-bindg
+          en
+      18                      canvas: Some("#bevy".into()),
+      19                      fit_canvas_to_parent: true,
+
+● Bash(cargo check 2>&1)
+  ⎿      Checking scrap-gamblers v0.1.0 (/home/cas/Workspace/games/scrap-ga
+     mblers/scrap-gamblers)
+         Finished `dev` profile [optimized + debuginfo] target(s) in 1.03s
+
+● It compiles. Now let's run it natively to verify it works:
+
+● Bash(cargo run 2>&1 &
+      sleep 8 && kill %1 2>/dev/null; echo "done")
+  ⎿     Compiling bevy_diagnostic v0.18.1
+        Compiling bevy_asset v0.18.1
+        Compiling bevy_image v0.18.1
+     … +3 lines (ctrl+o to expand)
+  ⎿  (timeout 30s)
+
+● Bash(cargo run 2>&1 &
+      PID=$!…)
+  ⎿     Compiling bevy_asset v0.18.1
+        Compiling bevy_image v0.18.1
+        Compiling bevy_shader v0.18.1
+     … +5 lines (ctrl+o to expand)
+  ⎿  (timeout 1m)
+
+● Bash(cargo build 2>&1 | tail -5 && cargo run --no-default-features 2>&1 &
+      PID=$!…)
+  ⎿  ---done---
+  ⎿  (timeout 2m)
+
+● Bash(cargo build 2>&1 | tail -3)
+  ⎿  Running in the background (↓ to manage)
+  ⎿  (timeout 5m)
+
+● Bash(tail -f /tmp/claude-1000/-home-cas-Workspace-games-scrap-gamblers-scrap-g
+      amblers/c71c5dd0-313f-45fc-b175-238d14b0d78f/tasks/bqnmxmcq9.output
+      2>/dev/null &
+      TAIL_…)
+  ⎿      Blocking waiting for file lock on artifact directory
+         Finished `dev` profile [optimized + debuginfo] target(s) in 5m 49s
+  ⎿  (timeout 3m 20s)
+● Build succeeded. Now let's do a quick runtime test and also build for WASM:
+
+● Bash(timeout 6 cargo run 2>&1 || true)
+  ⎿      Finished `dev` profile [optimized + debuginfo] target(s) in 0.33s
+          Running `target/debug/scrap-gamblers`
+     2026-03-30T06:19:59.634366Z  INFO bevy_diagnostic::system_information_
+     … +18 lines (ctrl+o to expand)
+  ⎿  (timeout 30s)
+
+● Runs cleanly. Let me also verify the WASM build works:
+
+● Bash(rustup target list --installed | grep wasm)
+  ⎿  wasm32-unknown-unknown
+
+● Bash(cargo build --release --target wasm32-unknown-unknown 2>&1 | tail -5 &
+      WASM_PID=$!…)
+  ⎿  Running in the background (↓ to manage)
+
+● Agent(Save project memories)
+  ⎿  Backgrounded agent (↓ to manage · ctrl+o to expand)
+
+● Here's a summary of everything that was built and the key details to know:
+
+  ---
+  What was built
+
+  7 new files implementing a Fallout Pip-Boy menu in WebGL via Bevy 0.18:
+
+  ┌─────────────────────────┬────────────────────────────────────────────────┐
+  │          File           │                    Purpose                     │
+  ├─────────────────────────┼────────────────────────────────────────────────┤
+  │ src/main.rs             │ App setup, plugin registration                 │
+  ├─────────────────────────┼────────────────────────────────────────────────┤
+  │ src/pip_boy.rs          │ Pip-Boy frame sprites, two cameras, CRT mesh,  │
+  │                         │ menu text                                      │
+  ├─────────────────────────┼────────────────────────────────────────────────┤
+  │ src/crt_material.rs     │ CrtMaterial — custom Material2d with shader    │
+  │                         │ binding                                        │
+  ├─────────────────────────┼────────────────────────────────────────────────┤
+  │ src/menu.rs             │ MenuState resource, NavEvent messages, text    │
+  │                         │ update system                                  │
+  ├─────────────────────────┼────────────────────────────────────────────────┤
+  │ src/buttons.rs          │ Physical UI buttons, keyboard input,           │
+  │                         │ interaction handling                           │
+  ├─────────────────────────┼────────────────────────────────────────────────┤
+  │ assets/shaders/crt.wgsl │ WGSL fragment shader: barrel distortion,       │
+  │                         │ scanlines, phosphor glow, flicker              │
+  ├─────────────────────────┼────────────────────────────────────────────────┤
+  │ index.html              │ Entry point for trunk serve                    │
+  └─────────────────────────┴────────────────────────────────────────────────┘
+
+  How to run
+
+  Native (fast dev):
+  cargo run
+
+  Browser (WebGL2):
+  # Install trunk once: cargo install trunk
+  trunk serve        # hot-reloads at http://localhost:8080
+
+  Controls
+
+  - ↑ / W or the ▲ UP button — navigate up
+  - ↓ / S or the ▼ DOWN button — navigate down
+  - Enter / Space or the ● OK button — select
+
+  Architecture note (Bevy 0.18 specifics)
+
+  Several APIs changed significantly in 0.18 that differ from older tutorials:
+  - RenderTarget is now its own Component, not a field inside Camera
+  - Events are now Messages: MessageWriter<T>, MessageReader<T>,
+  app.add_message::<T>()
+  - BorderRadius lives inside Node { border_radius: ... }, not as a standalone
+  component
+  - Material2d / Material2dPlugin are in bevy::sprite_render, not bevy::sprite
+
+✻ Sautéed for 18m 51s
+
+● Background command "Build the project fully" completed (exit code 0)
+
+● Background command "Start WASM release build in background" completed (exit
+code 0)
+
+  Read 2 files (ctrl+o to expand)
+
+● Bash(ls target/wasm32-unknown-unknown/release/*.wasm 2>/dev/null && echo "WASM
+       build present" || cargo build --release --target wasm32-unknown-unknown
+      2>&1 | tail -5)
+  ⎿      Blocking waiting for file lock on artifact directory
+         Finished `release` profile [optimized] target(s) in 9m 41s
+  ⎿  (timeout 10m)
+
+  Read 1 file (ctrl+o to expand)
+
+● Both builds are confirmed:
+
+  - Native build ✓ — runs with no errors
+  - WASM build ✓ — target/wasm32-unknown-unknown/release/scrap-gamblers.wasm
+  produced
+
+  The project is ready to serve in a browser. Run trunk serve and open
+  http://localhost:8080 to see the Pip-Boy menu with the CRT screen, fish-eye
+  distortion, scanlines, phosphor glow, and the physical buttons on each side.
+
+✻ Sautéed for 10m 10s
+
+● Agent "Save project memories" completed
+
+● Write(~/.claude/projects/-home-cas-Workspace-games-scrap-gamblers-scrap-gamble
+       rs/memory/project_pipboy.md)
+  ⎿  Wrote 11 lines to ../../../../.claude/projects/-home-cas-Workspace-games-sc
+     rap-gamblers-scrap-gamblers/memory/project_pipboy.md
+      1 ---
+      2 name: Pip-Boy Project Goal
+      3 description: The scrap-gamblers project is building a Fallout Pip
+        -Boy styled WebGL menu using Bevy 0.18
+      4 type: project
+      5 ---
+      6 
+      7 This project builds a Fallout Pip-Boy styled interactive menu usi
+        ng Bevy 0.18 + WASM (WebGL2).
+      8 
+      9 **Why:** User wants a browser-viewable demo with CRT screen effec
+        t, physical buttons, and text menu navigation.
+     … +1 line (ctrl+o to expand)
+
+● Write(~/.claude/projects/-home-cas-Workspace-games-scrap-gamblers-scrap-gamble
+       rs/memory/feedback_bevy018_apis.md)
+  ⎿  Wrote 20 lines to ../../../../.claude/projects/-home-cas-Workspace-games-sc
+     rap-gamblers-scrap-gamblers/memory/feedback_bevy018_apis.md
+       1 ---
+       2 name: Bevy 0.18 API Changes
+       3 description: Critical Bevy 0.18 API changes vs older versions — 
+         use these when writing Bevy code
+       4 type: feedback
+       5 ---
+       6 
+       7 Bevy 0.18 has major API changes from 0.14 and earlier:
+       8 
+       9 - **Events renamed to Messages**: `#[derive(Event)]` → `#[derive
+         (Message)]`, `EventReader` → `MessageReader`, `EventWriter` → `M
+         essageWriter`, `app.add_event` → `app.add_message`, `writer.send
+         (x)` → `writer.write(x)`
+      10 - **RenderTarget is a separate Component**: `Camera` no longer h
+         as a `target` field. Spawn `RenderTarget::Image(ImageRenderTarge
+         t { handle, scale_factor: 1.0 })` as a separate component alongs
+         ide `Camera`.
+     … +10 lines (ctrl+o to expand)
+
+● Write(~/.claude/projects/-home-cas-Workspace-games-scrap-gamblers-scrap-gamble
+       rs/memory/project_architecture.md)
+  ⎿  Wrote 19 lines to ../../../../.claude/projects/-home-cas-Workspace-gam
+     es-scrap-gamblers-scrap-gamblers/memory/project_architecture.md
+      1 ---
+      2 name: Pip-Boy Architecture
+      3 description: Two-camera render-target architecture for CRT screen
+         effect in scrap-gamblers
+      4 type: project
+      5 ---
+      6 
+      7 The Pip-Boy uses a two-camera architecture:
+      8 
+      9 1. **Menu Camera** (order: -1, RenderLayers::layer(1)): Renders T
+        ext2d entities into a 512x320 RGBA render target. Uses `Projectio
+        n::Orthographic` with `ScalingMode::Fixed { width: 512, height: 3
+        20 }` so text coordinates map 1:1 to pixels.
+     … +9 lines (ctrl+o to expand)
+
+● Write(~/.claude/projects/-home-cas-Workspace-games-scrap-gamblers-scrap-gamble
+       rs/memory/MEMORY.md)
+  ⎿  Wrote 3 lines to ../../../../.claude/projects/-home-cas-Workspace-game
+     s-scrap-gamblers-scrap-gamblers/memory/MEMORY.md
+      1 - [Pip-Boy Project Goal](project_pipboy.md) — Bevy 0.18 + WASM Pi
+        p-Boy styled WebGL menu, browser-viewable with CRT effect and phy
+        sical buttons
+      2 - [Bevy 0.18 API Changes](feedback_bevy018_apis.md) — Critical AP
+        I changes: Messages not Events, RenderTarget as separate componen
+        t, module path renames, and more
+      3 - [Pip-Boy Architecture](project_architecture.md) — Two-camera re
+        nder-target setup: menu camera into 512x320 texture, main camera 
+        through CRT WGSL shader to window
+
+● Memories saved for future sessions.

@@ -1,0 +1,21 @@
+[package]
+name = "scrap-gamblers"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+# Enable for faster native dev builds only — breaks WASM
+dev = ["bevy/dynamic_linking"]
+
+[dependencies]
+bevy = { version = "0.18", features = ["webgl2"] }
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+opt-level = "s"
+lto = true
