@@ -4,6 +4,7 @@ mod menu;
 mod pip_boy;
 
 use bevy::prelude::*;
+use bevy::remote::{RemotePlugin, http::RemoteHttpPlugin};
 use bevy::sprite_render::Material2dPlugin;
 use crt_material::CrtMaterial;
 
@@ -23,6 +24,8 @@ fn main() {
                 ..default()
             }),
         )
+        .add_plugins(RemotePlugin::default())
+        .add_plugins(RemoteHttpPlugin::default())
         .add_plugins(Material2dPlugin::<CrtMaterial>::default())
         .init_resource::<menu::MenuState>()
         .add_message::<menu::NavEvent>()

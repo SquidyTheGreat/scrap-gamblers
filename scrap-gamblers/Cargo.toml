@@ -8,7 +8,7 @@ edition = "2024"
 dev = ["bevy/dynamic_linking"]
 
 [dependencies]
-bevy = { version = "0.18", features = ["webgl2"] }
+bevy = { version = "0.18", features = ["webgl2", "bevy_remote"] }
 
 [profile.dev]
 opt-level = 1
