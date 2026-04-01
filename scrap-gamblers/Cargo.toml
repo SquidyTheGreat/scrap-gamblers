@@ -5,10 +5,10 @@ edition = "2024"
 
 [features]
 # Enable for faster native dev builds only — breaks WASM
-dev = ["bevy/dynamic_linking"]
+dev = ["bevy/dynamic_linking", "bevy/bevy_remote"]
 
 [dependencies]
-bevy = { version = "0.18", features = ["webgl2", "bevy_remote"] }
+bevy = { version = "0.18", features = ["webgl2"] }
 
 [profile.dev]
 opt-level = 1
