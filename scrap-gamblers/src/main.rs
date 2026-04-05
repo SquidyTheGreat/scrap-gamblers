@@ -15,7 +15,7 @@ fn main() {
     app.add_plugins(
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                title: "Pip-Boy 3000".into(),
+                title: "Scrap Gamblers".into(),
                 resolution: (1024_u32, 640_u32).into(),
                 // Canvas selector used by trunk/wasm-bindgen
                 canvas: Some("#bevy".into()),
@@ -32,6 +32,7 @@ fn main() {
 
     app.add_plugins(Material2dPlugin::<CrtMaterial>::default())
         .init_resource::<menu::MenuState>()
+        .init_resource::<menu::CurrentView>()
         .add_message::<menu::NavEvent>()
         .add_systems(
             Startup,
@@ -43,6 +44,7 @@ fn main() {
                 buttons::handle_interaction,
                 buttons::handle_keyboard,
                 menu::on_nav_event,
+                menu::update_view,
                 menu::update_text,
                 crt_material::tick_time,
             ),

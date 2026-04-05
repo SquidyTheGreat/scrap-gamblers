@@ -17,7 +17,7 @@ pub struct CrtParams {
 impl Default for CrtParams {
     fn default() -> Self {
         Self {
-            settings: Vec4::new(0.10, 0.30, 0.0, 0.0),
+            settings: Vec4::new(0.05, 0.30, 0.0, 0.0),
             resolution: Vec4::new(512.0, 320.0, 0.0, 0.0),
         }
     }

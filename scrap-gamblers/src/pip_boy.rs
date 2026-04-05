@@ -11,10 +11,7 @@ use bevy::{
     },
 };
 
-use crate::{
-    crt_material::{CrtMaterial, CrtParams, CrtScreen},
-    menu::{MenuItem, MenuState},
-};
+use crate::crt_material::{CrtMaterial, CrtParams, CrtScreen};
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -38,12 +35,10 @@ pub fn setup(
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut crt_mats: ResMut<Assets<CrtMaterial>>,
-    menu: Res<MenuState>,
 ) {
     let rt = create_render_target(&mut images);
     spawn_cameras(&mut commands, rt.clone());
     spawn_world_geometry(&mut commands, &mut meshes, &mut crt_mats, rt);
-    spawn_menu_text(&mut commands, &menu);
 }
 
 // ── Render target ─────────────────────────────────────────────────────────────
@@ -202,181 +197,5 @@ fn spawn_world_geometry(
         CrtScreen,
     ));
 
-    // ── Panel decorations ─────────────────────────────────────────────────
-    left_panel(commands, &wl);
-    right_panel(commands, &wl);
 }
 
-fn left_panel(commands: &mut Commands, wl: &RenderLayers) {
-    let cx = -390.0_f32;
-
-    // Panel background
-    commands.spawn((
-        Sprite {
-            color: Color::srgb(0.100, 0.130, 0.072),
-            custom_size: Some(Vec2::new(130.0, 380.0)),
-            ..default()
-        },
-        Transform::from_xyz(cx, 0.0, -6.0),
-        wl.clone(),
-    ));
-
-    // Power LED
-    commands.spawn((
-        Sprite {
-            color: Color::srgb(0.10, 0.90, 0.20),
-            custom_size: Some(Vec2::splat(10.0)),
-            ..default()
-        },
-        Transform::from_xyz(cx, 200.0, -5.0),
-        wl.clone(),
-    ));
-
-    // Decorative horizontal slots
-    for i in 0..3_i32 {
-        commands.spawn((
-            Sprite {
-                color: Color::srgb(0.070, 0.090, 0.052),
-                custom_size: Some(Vec2::new(90.0, 16.0)),
-                ..default()
-            },
-            Transform::from_xyz(cx, 120.0 - i as f32 * 60.0, -5.0),
-            wl.clone(),
-        ));
-    }
-
-    // Speaker grille dot grid
-    for row in 0..5_i32 {
-        for col in 0..4_i32 {
-            commands.spawn((
-                Sprite {
-                    color: Color::srgb(0.06, 0.08, 0.04),
-                    custom_size: Some(Vec2::splat(5.0)),
-                    ..default()
-                },
-                Transform::from_xyz(
-                    cx - 18.0 + col as f32 * 12.0,
-                    -100.0 - row as f32 * 12.0,
-                    -5.0,
-                ),
-                wl.clone(),
-            ));
-        }
-    }
-}
-
-fn right_panel(commands: &mut Commands, wl: &RenderLayers) {
-    let cx = 390.0_f32;
-
-    // Panel background
-    commands.spawn((
-        Sprite {
-            color: Color::srgb(0.100, 0.130, 0.072),
-            custom_size: Some(Vec2::new(130.0, 380.0)),
-            ..default()
-        },
-        Transform::from_xyz(cx, 0.0, -6.0),
-        wl.clone(),
-    ));
-
-    // Two rotary knob widgets
-    for i in 0..2_i32 {
-        let y = 160.0 - i as f32 * 100.0;
-        // Ring
-        commands.spawn((
-            Sprite {
-                color: Color::srgb(0.09, 0.11, 0.06),
-                custom_size: Some(Vec2::splat(48.0)),
-                ..default()
-            },
-            Transform::from_xyz(cx, y, -5.5),
-            wl.clone(),
-        ));
-        // Centre dot
-        commands.spawn((
-            Sprite {
-                color: Color::srgb(0.05, 0.07, 0.03),
-                custom_size: Some(Vec2::splat(12.0)),
-                ..default()
-            },
-            Transform::from_xyz(cx, y, -5.0),
-            wl.clone(),
-        ));
-        // Tick mark
-        commands.spawn((
-            Sprite {
-                color: Color::srgb(0.28, 0.38, 0.18),
-                custom_size: Some(Vec2::new(3.0, 16.0)),
-                ..default()
-            },
-            Transform::from_xyz(cx, y + 8.0, -4.9),
-            wl.clone(),
-        ));
-    }
-
-    // Decorative slots
-    for i in 0..3_i32 {
-        commands.spawn((
-            Sprite {
-                color: Color::srgb(0.070, 0.090, 0.052),
-                custom_size: Some(Vec2::new(90.0, 16.0)),
-                ..default()
-            },
-            Transform::from_xyz(cx, -60.0 - i as f32 * 55.0, -5.0),
-            wl.clone(),
-        ));
-    }
-}
-
-// ── Menu text (rendered into the CRT render-target) ───────────────────────────
-
-fn spawn_menu_text(commands: &mut Commands, menu: &MenuState) {
-    let ml = RenderLayers::layer(MENU_LAYER);
-
-    // Title
-    commands.spawn((
-        Text2d::new("═══  PIP-BOY  3000  ═══"),
-        TextFont { font_size: 21.0, ..default() },
-        TextColor(Color::srgb(0.90, 1.0, 0.90)),
-        Transform::from_xyz(0.0, 128.0, 0.0),
-        ml.clone(),
-    ));
-
-    // Divider
-    commands.spawn((
-        Text2d::new("────────────────────────────"),
-        TextFont { font_size: 13.0, ..default() },
-        TextColor(Color::srgba(0.6, 0.9, 0.6, 0.50)),
-        Transform::from_xyz(0.0, 104.0, 0.0),
-        ml.clone(),
-    ));
-
-    // Menu items
-    let item_spacing = 33.0_f32;
-    let items_top = 68.0_f32;
-    for (i, &label) in menu.items.iter().enumerate() {
-        let y = items_top - i as f32 * item_spacing;
-        let selected = i == menu.selected;
-        commands.spawn((
-            Text2d::new(format!("{} {}", if selected { ">" } else { " " }, label)),
-            TextFont { font_size: 19.0, ..default() },
-            TextColor(if selected {
-                Color::WHITE
-            } else {
-                Color::srgba(0.55, 0.80, 0.55, 0.85)
-            }),
-            Transform::from_xyz(-40.0, y, 0.0),
-            ml.clone(),
-            MenuItem { index: i, label },
-        ));
-    }
-
-    // Footer hint
-    commands.spawn((
-        Text2d::new("[↑↓] NAV    [ENTER] SELECT"),
-        TextFont { font_size: 11.5, ..default() },
-        TextColor(Color::srgba(0.40, 0.65, 0.40, 0.65)),
-        Transform::from_xyz(0.0, -132.0, 0.0),
-        ml.clone(),
-    ));
-}

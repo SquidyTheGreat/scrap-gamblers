@@ -6,6 +6,7 @@ pub enum NavAction {
     Up,
     Down,
     Select,
+    Back,
 }
 
 #[derive(Component, Clone)]
@@ -35,7 +36,7 @@ pub fn setup(mut commands: Commands) {
             flex_direction: FlexDirection::Row,
             align_items: AlignItems::Center,
             justify_content: JustifyContent::SpaceBetween,
-            padding: UiRect::horizontal(Val::Px(52.0)),
+            padding: UiRect::horizontal(Val::Px(90.0)),
             ..default()
         })
         .with_children(|root| {
@@ -48,8 +49,8 @@ pub fn setup(mut commands: Commands) {
             })
             .with_children(|panel| {
                 panel_label(panel, "NAVIGATE");
-                spawn_button(panel, NavAction::Up,   "▲  UP");
-                spawn_button(panel, NavAction::Down, "▼  DOWN");
+                spawn_button(panel, NavAction::Up,   "UP");
+                spawn_button(panel, NavAction::Down, "DOWN");
             });
 
             // ── Centre spacer: CRT mesh renders through it ────────────────
@@ -67,7 +68,8 @@ pub fn setup(mut commands: Commands) {
             })
             .with_children(|panel| {
                 panel_label(panel, "ACTION");
-                spawn_button(panel, NavAction::Select, "●  OK");
+                spawn_button(panel, NavAction::Select, "OK");
+                spawn_button(panel, NavAction::Back,   "BACK");
             });
         });
 }
@@ -131,6 +133,7 @@ pub fn handle_interaction(
                     NavAction::Up     => NavEvent::Up,
                     NavAction::Down   => NavEvent::Down,
                     NavAction::Select => NavEvent::Select,
+                    NavAction::Back   => NavEvent::Back,
                 });
             }
             Interaction::Hovered => {
@@ -148,15 +151,43 @@ pub fn handle_interaction(
 /// Keyboard shortcuts: arrows / W-S / Enter-Space.
 pub fn handle_keyboard(
     keys: Res<ButtonInput<KeyCode>>,
+    mut btn_query: Query<(&PipBoyButton, &mut BackgroundColor, &mut BorderColor)>,
     mut events: MessageWriter<NavEvent>,
 ) {
-    if keys.just_pressed(KeyCode::ArrowUp)   || keys.just_pressed(KeyCode::KeyW) {
-        events.write(NavEvent::Up);
+    let up     = keys.just_pressed(KeyCode::ArrowUp)   || keys.just_pressed(KeyCode::KeyW);
+    let down   = keys.just_pressed(KeyCode::ArrowDown) || keys.just_pressed(KeyCode::KeyS);
+    let select = keys.just_pressed(KeyCode::Enter)     || keys.just_pressed(KeyCode::Space);
+    let back   = keys.just_pressed(KeyCode::Escape)    || keys.just_pressed(KeyCode::Backspace);
+
+    let up_rel     = keys.just_released(KeyCode::ArrowUp)   || keys.just_released(KeyCode::KeyW);
+    let down_rel   = keys.just_released(KeyCode::ArrowDown) || keys.just_released(KeyCode::KeyS);
+    let select_rel = keys.just_released(KeyCode::Enter)     || keys.just_released(KeyCode::Space);
+    let back_rel   = keys.just_released(KeyCode::Escape)    || keys.just_released(KeyCode::Backspace);
+
+    for (btn, mut bg, mut border) in &mut btn_query {
+        let pressed = match btn.action {
+            NavAction::Up     => up,
+            NavAction::Down   => down,
+            NavAction::Select => select,
+            NavAction::Back   => back,
+        };
+        let released = match btn.action {
+            NavAction::Up     => up_rel,
+            NavAction::Down   => down_rel,
+            NavAction::Select => select_rel,
+            NavAction::Back   => back_rel,
+        };
+        if pressed {
+            bg.0 = BG_PRESS;
+            *border = BorderColor::all(BORDER_PRESS);
+        } else if released {
+            bg.0 = BG_NORMAL;
+            *border = BorderColor::all(BORDER_NORMAL);
+        }
     }
-    if keys.just_pressed(KeyCode::ArrowDown) || keys.just_pressed(KeyCode::KeyS) {
-        events.write(NavEvent::Down);
-    }
-    if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::Space) {
-        events.write(NavEvent::Select);
-    }
+
+    if up     { events.write(NavEvent::Up); }
+    if down   { events.write(NavEvent::Down); }
+    if select { events.write(NavEvent::Select); }
+    if back   { events.write(NavEvent::Back); }
 }
