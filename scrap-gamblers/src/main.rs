@@ -2,6 +2,7 @@ mod buttons;
 mod crt_material;
 mod menu;
 mod pip_boy;
+mod requests;
 
 use bevy::prelude::*;
 #[cfg(feature = "dev")]
